@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Campeonato de Dead by Daylight: grupos, partidas, ganchos e grande final.">
+<meta name="theme-color" content="#eceff4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0c0f" media="(prefers-color-scheme: dark)">
+<title>Copa do Gancho</title>
+<style>
+/* Layout: translucent sticky toolbar + "Agora" strip; a 3-page swipeable pager (Grupos / Final / Regras); all editing in a draggable bottom sheet. */
+:root{
+  --bg:#eceff4; --surface:#ffffff; --surface-2:#f4f6f9; --fg:#12151b; --muted:#5b6372; --faint:#878f9d;
+  --line:rgba(18,21,27,.09); --glass:rgba(240,243,248,.7); --seg:rgba(18,21,27,.07); --scrim:rgba(10,12,16,.32);
+  --a:#2a62f4; --b:#7445e8; --gold:#a96500; --win:#16834a; --warn:#a85600; --bad:#c93a3a;
+  --shadow:0 1px 2px rgba(18,21,27,.06),0 8px 24px rgba(18,21,27,.06); --sheet-shadow:0 -12px 48px rgba(10,12,16,.18);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0b0c0f; --surface:#16181d; --surface-2:#1d2026; --fg:#eceef2; --muted:#9aa1ae; --faint:#6f7684;
+  --line:rgba(255,255,255,.08); --glass:rgba(16,18,22,.66); --seg:rgba(255,255,255,.08); --scrim:rgba(0,0,0,.55);
+  --a:#5d8bff; --b:#a383ff; --gold:#f2a93b; --win:#42cf7f; --warn:#f0a050; --bad:#ff6b6b;
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px rgba(0,0,0,.25); --sheet-shadow:0 -12px 48px rgba(0,0,0,.5); color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0b0c0f; --surface:#16181d; --surface-2:#1d2026; --fg:#eceef2; --muted:#9aa1ae; --faint:#6f7684;
+  --line:rgba(255,255,255,.08); --glass:rgba(16,18,22,.66); --seg:rgba(255,255,255,.08); --scrim:rgba(0,0,0,.55);
+  --a:#5d8bff; --b:#a383ff; --gold:#f2a93b; --win:#42cf7f; --warn:#f0a050; --bad:#ff6b6b;
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px rgba(0,0,0,.25); --sheet-shadow:0 -12px 48px rgba(0,0,0,.5); color-scheme:dark;}
+
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+a{color:var(--a)}
+body{background:var(--bg);color:var(--fg);font:15px/1.47 var(--font);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+html.locked,html.locked body{overflow:hidden}
+button,input{font:inherit;color:inherit}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px}
+
+/* Toolbar: the only translucent layer; an edge shadow appears only once content scrolls under it */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--glass);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);transition:box-shadow .2s}
+.top.scrolled{box-shadow:0 1px 0 var(--line),0 6px 16px -10px rgba(0,0,0,.25)}
+.top .wrap{display:flex;flex-direction:column;gap:10px;padding-block:12px}
+.brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.brand h1{margin:0;font:700 22px/1.1 var(--display);letter-spacing:-.022em;flex:1 1 180px;min-width:0}
+.brand h1 small{display:block;font:500 12px/1.3 var(--font);letter-spacing:.01em;color:var(--muted);margin-top:3px}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--muted);white-space:nowrap;padding:6px 10px;border-radius:999px;background:var(--seg)}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none}
+.status[data-s="edit"] i{background:var(--win)}
+.status[data-s="dirty"] i,.status[data-s="saving"] i{background:var(--gold)}
+.status[data-s="error"] i{background:var(--bad)}
+.btn{border:0;background:var(--seg);padding:7px 13px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;will-change:transform;touch-action:manipulation}
+.btn.solid{background:var(--fg);color:var(--bg)}
+.btn.accent{background:var(--a);color:#fff}
+.btn:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.seg button:focus-visible,.card:focus-visible,.st-btn:focus-visible,.icon-btn:focus-visible,.chipbtn:focus-visible,.ab button:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+
+.seg{position:relative;display:grid;grid-template-columns:repeat(3,1fr);background:var(--seg);border-radius:10px;padding:2px;user-select:none}
+.seg-thumb{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px)/3);border-radius:8px;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.12);will-change:transform}
+.seg button{position:relative;z-index:1;border:0;background:none;padding:7px 4px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:8px}
+.seg button.on{color:var(--fg)}
+
+/* "Agora" strip: wayfinding for whoever is in the call */
+.now-slot{padding-top:16px}
+.now{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:space-between;padding:14px 16px;border-radius:16px;background:var(--surface);box-shadow:var(--shadow);border-left:4px solid var(--gc,var(--gold))}
+.now > div{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 260px}
+.now .eyebrow{color:var(--gc,var(--gold))}
+.now strong{font:700 19px/1.2 var(--display);letter-spacing:-.015em}
+.now span{font-size:13px;color:var(--muted)}
+.now.notice{border-left-color:var(--gold)}
+.now.champ-strip{--gc:var(--gold)}
+.now.alert{border-left-color:var(--bad)}
+
+/* Pager */
+.pager{position:relative;overflow:hidden;touch-action:pan-y;margin-inline:-16px}
+.track{display:flex;align-items:flex-start;will-change:transform}
+.track.dragging{user-select:none}
+.page{flex:0 0 100%;min-width:0;padding:18px 16px 56px}
+
+.groups{display:grid;gap:28px;grid-template-columns:1fr}
+@media (min-width:800px){.groups{grid-template-columns:1fr 1fr;gap:20px}}
+.group{display:flex;flex-direction:column;gap:12px;min-width:0}
+.group-title{display:flex;align-items:center;gap:8px;margin:0;font:700 17px/1.2 var(--display);letter-spacing:-.01em}
+.group-title .dot{width:10px;height:10px;border-radius:3px;background:var(--gc)}
+.group-title small{font:500 12.5px var(--font);color:var(--muted);letter-spacing:0}
+.g-A{--gc:var(--a)} .g-B{--gc:var(--b)} .g-F{--gc:var(--gold)}
+
+.table-wrap{background:var(--surface);border-radius:14px;box-shadow:var(--shadow);overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);text-align:right;padding:10px 10px 6px;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;padding-left:14px}
+th:last-child,td:last-child{padding-right:14px}
+td{padding:9px 10px;border-top:1px solid var(--line);text-align:right;font-size:14px}
+td.name{font-weight:600;white-space:nowrap}
+.chip{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:600;vertical-align:1px;background:color-mix(in srgb,var(--gc,var(--gold)) 16%,transparent);color:var(--gc,var(--gold))}
+.chip.prov{background:var(--seg);color:var(--muted)}
+.chip.now-chip{background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold);margin-left:0}
+
+.caption{margin:4px 2px 0;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+.matches{display:flex;flex-direction:column;gap:10px}
+.card{display:block;background:var(--surface);border-radius:14px;box-shadow:var(--shadow);padding:14px;cursor:pointer;transform-origin:50% 50%;will-change:transform;outline:none;text-align:left}
+.card.is-next{box-shadow:var(--shadow),0 0 0 2px color-mix(in srgb,var(--gold) 55%,transparent)}
+.card.disabled{cursor:default;opacity:.7}
+.card-head{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.vs{font:600 16px/1.25 var(--display);letter-spacing:-.01em;min-width:0;flex:1}
+.vs i{font-style:normal;color:var(--faint);font-weight:500;padding:0 2px}
+.pill{font:600 13px/1 var(--mono);padding:6px 9px;border-radius:8px;background:var(--seg);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.pill.live{background:color-mix(in srgb,var(--gold) 15%,transparent);color:var(--gold)}
+.pill.done{background:color-mix(in srgb,var(--gc,var(--gold)) 15%,transparent);color:var(--gc,var(--gold))}
+.meta{margin-top:4px;font-size:12.5px;color:var(--muted)}
+.meta.out{color:var(--faint)}
+.games{margin-top:10px;display:flex;flex-direction:column}
+.game{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}
+.game .gl{min-width:0;color:var(--muted)}
+.game .gl b{color:var(--fg);font-weight:600}
+.game .gl .map{display:block;font-size:12px;color:var(--faint)}
+.game .gr{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--muted);text-align:right}
+.game .gr .w{color:var(--fg);font-weight:700}
+.game .gr small{display:block;font-size:11.5px;color:var(--faint)}
+.game .gr .tie{color:var(--warn);font-weight:600}
+.empty{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--faint)}
+
+.final-hero{background:var(--surface);border-radius:20px;box-shadow:var(--shadow);padding:22px 18px;display:flex;flex-direction:column;gap:18px;--gc:var(--gold)}
+.eyebrow{margin:0;font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+.duel{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;text-align:center}
+.duel .side small{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.duel .side strong{display:block;font:700 clamp(20px,5vw,30px)/1.08 var(--display);letter-spacing:-.022em;overflow-wrap:anywhere}
+.duel .side.tbd strong{color:var(--faint);font-weight:600}
+.duel .x{font:600 14px var(--mono);color:var(--faint)}
+.champ{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px;border-radius:14px;background:color-mix(in srgb,var(--gold) 12%,transparent);text-align:center}
+.champ span{font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+.champ strong{font:800 clamp(26px,7vw,40px)/1.04 var(--display);letter-spacing:-.03em}
+.final-note{margin:0;font-size:13px;color:var(--muted);text-align:center}
+.final-stack{display:flex;flex-direction:column;gap:14px;max-width:640px;margin:0 auto}
+
+.rules{max-width:660px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
+.rules h2{margin:0 0 8px;font:700 19px/1.2 var(--display);letter-spacing:-.016em}
+.rules p,.rules li{color:var(--muted);max-width:64ch;margin:0}
+.rules p + p{margin-top:8px}
+.rules ol,.rules ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:7px}
+.rules strong{color:var(--fg)}
+.ex{background:var(--surface);border-radius:14px;box-shadow:var(--shadow);padding:14px}
+.ex .tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--seg);padding:2px 8px;border-radius:999px;margin-bottom:8px}
+
+/* Sheet: solid surface + scrim (a modal task), never glass on glass */
+.scrim{position:fixed;inset:0;background:var(--scrim);opacity:0;z-index:30}
+.sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;width:min(700px,100%);max-height:calc(100dvh - 40px - env(safe-area-inset-top,0px));
+  display:flex;flex-direction:column;background:var(--surface);border-radius:22px 22px 0 0;box-shadow:var(--sheet-shadow);z-index:31;
+  transform:translate3d(0,110%,0);will-change:transform;padding-bottom:env(safe-area-inset-bottom,0px)}
+.sheet-head{touch-action:none;cursor:grab;padding:8px 18px 12px;user-select:none;box-shadow:0 1px 0 var(--line)}
+.sheet-head:active{cursor:grabbing}
+.grabber{width:38px;height:5px;border-radius:3px;margin:0 auto 10px;background:color-mix(in srgb,var(--fg) 18%,transparent)}
+.sh-row{display:flex;align-items:center;gap:10px}
+.sh-row > div{flex:1;min-width:0}
+.sh-row h2{margin:2px 0 0;font:700 20px/1.2 var(--display);letter-spacing:-.02em;overflow-wrap:anywhere}
+.icon-btn{border:0;width:32px;height:32px;border-radius:50%;background:var(--seg);display:grid;place-items:center;cursor:pointer;flex:none;will-change:transform}
+.icon-btn svg{width:12px;height:12px;stroke:var(--muted);stroke-width:2.4;fill:none}
+.sheet-body{overflow:auto;overscroll-behavior:contain;padding:16px 18px 28px;display:flex;flex-direction:column;gap:22px}
+.sec h3{margin:0 0 8px;font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.sec h3 em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips span,.chipbtn{padding:6px 11px;border-radius:999px;background:var(--surface-2);font-size:13px;font-weight:500;border:1px solid transparent}
+.chipbtn{cursor:pointer;color:var(--muted);will-change:transform}
+.chipbtn.on{background:color-mix(in srgb,var(--a) 14%,transparent);color:var(--fg);border-color:color-mix(in srgb,var(--a) 35%,transparent)}
+.chipbtn:disabled{cursor:default}
+.hint{margin:6px 0 0;font-size:12.5px;color:var(--muted)}
+.fields{display:grid;gap:10px;grid-template-columns:1fr}
+@media (min-width:520px){.fields.two{grid-template-columns:1fr 1fr}.fields.three{grid-template-columns:1fr 1fr 1fr}}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field > span{font-size:12.5px;color:var(--muted);font-weight:500;display:flex;justify-content:space-between;gap:8px}
+.field input{width:100%;border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:10px 12px;color:var(--fg);outline:none}
+.field input:focus{border-color:var(--a);box-shadow:0 0 0 3px color-mix(in srgb,var(--a) 22%,transparent)}
+.field input:disabled{opacity:.8}
+.mini{border:0;background:none;padding:0;font-size:12.5px;font-weight:600;color:var(--a);cursor:pointer}
+.mini:disabled{color:var(--faint);cursor:default}
+.gblocks{display:flex;flex-direction:column;gap:12px}
+.gblock{border-radius:14px;background:var(--surface-2);padding:12px;display:flex;flex-direction:column;gap:10px;border:1px solid transparent}
+.gblock.current{border-color:color-mix(in srgb,var(--gold) 45%,transparent)}
+.gblock.locked{opacity:.45}
+.gb-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.gb-head b{font:700 15px var(--display)}
+.gb-killer{font-weight:600}
+.gb-note{font-size:12.5px;color:var(--muted);width:100%}
+.opener{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.opener strong{color:var(--fg)}
+.steppers{display:grid;gap:8px;grid-template-columns:1fr}
+@media (min-width:480px){.steppers{grid-template-columns:1fr 1fr}}
+.stepper{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--surface);border-radius:12px;padding:6px 6px 6px 12px;min-width:0}
+.st-name{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.st-name small{display:block;font-size:11px;font-weight:500;color:var(--faint)}
+.st-name.w{color:var(--win)}
+.st-ctl{display:flex;align-items:center;gap:4px;flex:none}
+.st-btn{width:38px;height:38px;border:0;border-radius:10px;background:var(--seg);font-size:20px;font-weight:500;line-height:1;cursor:pointer;display:grid;place-items:center;will-change:transform;touch-action:manipulation}
+.st-btn:disabled{opacity:.3;cursor:default}
+.st-val{min-width:30px;text-align:center;font:700 18px var(--mono);font-variant-numeric:tabular-nums}
+.tb{display:flex;flex-direction:column;gap:8px;padding-top:4px}
+.tb-title{margin:0;font-size:12px;font-weight:600;color:var(--warn)}
+.gb-foot{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.gb-result{font-size:13px;color:var(--muted)}
+.gb-result b{color:var(--win)}
+.gb-result .tie{color:var(--warn);font-weight:600}
+.link{border:0;background:none;padding:4px 0;font-size:12.5px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.link:disabled{opacity:.4;cursor:default}
+.warn{margin:0;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn);font-size:13px;font-weight:500}
+.ok{margin:0;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--win) 12%,transparent);color:var(--win);font-size:13px;font-weight:600}
+.ro-note{font-size:13px;color:var(--muted);margin:0}
+
+/* Players editor */
+.plist{display:flex;flex-direction:column;gap:8px}
+.prow{display:flex;align-items:center;gap:8px}
+.prow input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:9px 12px;color:var(--fg);outline:none}
+.prow input:focus{border-color:var(--a);box-shadow:0 0 0 3px color-mix(in srgb,var(--a) 22%,transparent)}
+.ab{display:flex;background:var(--seg);border-radius:9px;padding:2px;flex:none}
+.ab button{border:0;background:none;width:34px;height:30px;border-radius:7px;font-weight:700;font-size:13px;color:var(--muted);cursor:pointer}
+.ab button.on[data-pg="A"]{background:var(--a);color:#fff}
+.ab button.on[data-pg="B"]{background:var(--b);color:#fff}
+.addrow{display:flex;gap:8px}
+.addrow input{flex:1;min-width:0;border:1px dashed var(--line);background:transparent;border-radius:10px;padding:9px 12px;color:var(--fg);outline:none}
+.addrow input:focus{border-style:solid;border-color:var(--a)}
+.counts{font-size:13px;color:var(--muted);margin:0}
+.draw-bar{display:flex;gap:8px;flex-wrap:wrap}
+.draw-bar .btn{padding:10px 16px;font-size:14px}
+.draw-bar .btn.solid{flex:1 1 auto}
+
+@media (prefers-reduced-transparency: reduce){.top{background:var(--bg);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 1px 0 var(--line)}}
+@media (prefers-contrast: more){.top{background:var(--bg);-webkit-backdrop-filter:none;backdrop-filter:none;border-bottom:1px solid var(--fg)}.card,.table-wrap,.now,.final-hero,.ex{box-shadow:none;border:1px solid var(--fg)}.field input,.prow input{border-color:var(--fg)}}
+</style>
+</head>
+<body>
+<div id="shell">
+<header class="top" id="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>Copa do Gancho<small id="subtitle">Dead by Daylight · melhor de 3 nos grupos, melhor de 5 na final</small></h1>
+      <span class="status" id="status" data-s="view"><i></i><span>Carregando…</span></span>
+      <button class="btn accent pressable" id="save-btn" type="button" hidden>Salvar</button>
+      <button class="btn pressable" id="login-btn" type="button">Entrar</button>
+      <button class="btn pressable" id="edit-players" type="button" hidden>Jogadores</button>
+    </div>
+    <div class="seg" role="tablist" aria-label="Seções">
+      <div class="seg-thumb" aria-hidden="true"></div>
+      <button type="button" role="tab" id="tab-0" aria-controls="p-grupos" class="on">Grupos</button>
+      <button type="button" role="tab" id="tab-1" aria-controls="p-final">Final</button>
+      <button type="button" role="tab" id="tab-2" aria-controls="p-regras">Regras</button>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+  <div class="now-slot" id="now"></div>
+  <div class="pager" id="pager">
+    <div class="track" id="track">
+      <section class="page" id="p-grupos" role="tabpanel" aria-labelledby="tab-0"><div class="groups" id="groups"></div></section>
+      <section class="page" id="p-final" role="tabpanel" aria-labelledby="tab-1"><div class="final-stack" id="final"></div></section>
+      <section class="page" id="p-regras" role="tabpanel" aria-labelledby="tab-2">
+        <div class="rules">
+          <section>
+            <h2>Formato</h2>
+            <ol>
+              <li><strong>De 6 a 10 jogadores, divididos em 2 grupos</strong> por sorteio ou montados na mão. Dentro do grupo, todo mundo enfrenta todo mundo.</li>
+              <li>Em cada partida, <strong>2 jogadores se enfrentam de killer</strong> e <strong>4 jogam de sobrevivente</strong>. Com mais de 6 jogadores, quem sobra fica de fora daquela partida.</li>
+              <li><strong>Grupos em melhor de 3. Final em melhor de 5.</strong></li>
+              <li>Cada jogador <strong>bane 1 killer</strong> antes da partida.</li>
+              <li>Melhor de 3: cada jogador escolhe 1 killer e os sobreviventes escolhem o terceiro. Melhor de 5: cada jogador escolhe 2, alternando, e os sobreviventes escolhem o quinto.</li>
+              <li>Em cada jogo, <strong>os dois jogam o mesmo killer, no mesmo mapa, com as mesmas perks</strong>. Quem pegar mais ganchos vence o jogo.</li>
+              <li>O 1º de cada grupo vai para a <strong>grande final</strong>.</li>
+            </ol>
+          </section>
+          <section>
+            <h2>Quem abre e quem escolhe o mapa</h2>
+            <ul>
+              <li><strong>Quem escolheu o killer joga primeiro.</strong> Quem joga depois sabe quantos ganchos precisa, e essa vantagem fica com quem não escolheu.</li>
+              <li><strong>O mapa é escolhido pelo adversário</strong> de quem escolheu o killer.</li>
+              <li>No <strong>jogo decisivo</strong> (escolha dos sobreviventes), quem abre e o mapa são sorteados na ficha da partida.</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Builds</h2>
+            <ul>
+              <li><strong>Sem add-ons e sem oferendas</strong> para os killers.</li>
+              <li>Quem escolheu o killer define as 4 perks e o adversário usa as mesmas. No jogo decisivo, os sobreviventes definem as perks.</li>
+              <li>Os sobreviventes mantêm a mesma build nos dois turnos de um jogo, para os dois killers enfrentarem a mesma coisa.</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Sobreviventes</h2>
+            <ul>
+              <li>Os <strong>mesmos 4 sobreviventes</strong> jogam os dois turnos de cada jogo.</li>
+              <li><strong>Sobrevivente joga sempre para sobreviver</strong>, do mesmo jeito contra os dois killers. Facilitar ou entregar não vale, inclusive para quem é do mesmo grupo dos killers.</li>
+              <li>Com mais de 6 jogadores, o site sugere os 4 sobreviventes de cada partida em rodízio: quem jogou menos de sobrevivente entra primeiro e, no empate, entra quem é do outro grupo. O organizador pode trocar na ficha.</li>
+            </ul>
+          </section>
+          <section>
+            <h2>Desempates</h2>
+            <p><strong>Num jogo:</strong> mais ganchos. Empatou, mais kills. Empatou de novo, vence quem deixou os sobreviventes fazerem menos geradores. Se ainda empatar, joguem de novo.</p>
+            <p><strong>No grupo:</strong> vitórias, depois saldo de jogos, depois média de ganchos por jogo, depois total de ganchos. Se persistir, sorteio entre os empatados.</p>
+          </section>
+          <section>
+            <h2>Ordem das partidas</h2>
+            <p>As partidas alternam entre os grupos, para ninguém jogar de killer duas partidas seguidas. A faixa <strong>Agora</strong> no topo mostra a partida da vez, o jogo, o killer e quem abre.</p>
+          </section>
+          <section>
+            <h2>Quem pode editar</h2>
+            <p>Só quem tem a <strong>senha de organizador</strong> altera resultados, jogadores e grupos. Todo mundo que abre o link acompanha os placares em modo leitura. A página se atualiza sozinha a cada minuto.</p>
+          </section>
+          <section class="ex">
+            <span class="tag">Exemplo</span>
+            <h2>Rodriguin × Daniboy</h2>
+            <p>Rodriguin bane Nurse e Daniboy bane Blight. Rodriguin escolhe Clown, Daniboy escolhe Alien e os sobreviventes escolhem Trapper.</p>
+            <div class="games">
+              <div class="game"><div class="gl"><b>Jogo 1</b> · Clown · abre Rodriguin<span class="map">Coal Tower, escolha do Daniboy</span></div><div class="gr"><span class="w">Rodriguin 7</span> × 6 Daniboy</div></div>
+              <div class="game"><div class="gl"><b>Jogo 2</b> · Alien · abre Daniboy<span class="map">Autohaven Wreckers, escolha do Rodriguin</span></div><div class="gr">Rodriguin 6 × <span class="w">10 Daniboy</span></div></div>
+              <div class="game"><div class="gl"><b>Jogo 3</b> · Trapper · abre quem o sorteio mandar<span class="map">Haddonfield, sorteado</span></div><div class="gr"><span class="w">Rodriguin 5</span> × 4 Daniboy</div></div>
+            </div>
+            <p style="margin-top:8px">Rodriguin vence por 2–1.</p>
+          </section>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-title" hidden></div>
+<datalist id="killers"></datalist>
+<datalist id="maps"></datalist>
+</div>
+<script>
+(() => {
+'use strict';
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+const RM = matchMedia('(prefers-reduced-motion: reduce)');
+const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }, del(k) { try { localStorage.removeItem(k); } catch (e) {} } };
+const buzz = () => { try { navigator.vibrate && navigator.vibrate(10); } catch (e) {} };
+
+/* ---------- Physics ---------- */
+class Spring {
+  constructor(value, opts, onUpdate) {
+    this.x = value; this.v = 0; this.target = value; this.on = onUpdate; this.raf = 0;
+    this.precision = opts.precision ?? 0.5; this.done = null;
+    this.config(opts.damping ?? 1, opts.response ?? 0.4); this.tick = this.tick.bind(this);
+  }
+  config(d, r) { this.k = Math.pow(2 * Math.PI / r, 2); this.c = 4 * Math.PI * d / r; }
+  to(target, o = {}) {
+    if (o.damping != null || o.response != null) this.config(o.damping ?? 1, o.response ?? 0.4);
+    this.target = target; if (o.velocity != null) this.v = o.velocity;
+    if (RM.matches) { this.stop(); this.x = target; this.v = 0; this.on(this.x); this.finish(); return; }
+    if (!this.raf) { this.last = performance.now(); this.raf = requestAnimationFrame(this.tick); }
+  }
+  tick(now) {
+    const dt = Math.min((now - this.last) / 1000, 0.064); this.last = now;
+    const n = Math.max(1, Math.ceil(dt / 0.004)), h = dt / n;
+    for (let i = 0; i < n; i++) { const a = -this.k * (this.x - this.target) - this.c * this.v; this.v += a * h; this.x += this.v * h; }
+    if (Math.abs(this.v) < this.precision * 2 && Math.abs(this.x - this.target) < this.precision) { this.x = this.target; this.v = 0; this.raf = 0; this.on(this.x); this.finish(); return; }
+    this.on(this.x); this.raf = requestAnimationFrame(this.tick);
+  }
+  finish() { const d = this.done; this.done = null; d && d(); }
+  jump(x) { this.stop(); this.x = x; this.target = x; this.v = 0; this.on(x); }
+  stop() { if (this.raf) cancelAnimationFrame(this.raf); this.raf = 0; }
+  get moving() { return !!this.raf; }
+}
+function tracker() {
+  let s = [];
+  return { reset() { s = []; }, add(x) { const t = performance.now(); s.push({ t, x }); while (s.length > 2 && t - s[0].t > 100) s.shift(); },
+    v() { if (s.length < 2) return 0; const a = s[0], b = s[s.length - 1], dt = (b.t - a.t) / 1000; return dt > 0 ? (b.x - a.x) / dt : 0; } };
+}
+const project = (v, rate = 0.99) => (v / 1000) * rate / (1 - rate);
+const rubber = (o, d, c = 0.55) => (o * d * c) / (d + c * Math.abs(o));
+
+/* ---------- Data ---------- */
+const KILLERS = ['Trapper','Wraith','Hillbilly','Nurse','Myers','Hag','Doctor','Huntress','Bubba','Freddy','Pig','Clown','Spirit','Legion','Plague','Ghostface','Demogorgon','Oni','Deathslinger','Pyramid Head','Blight','Twins','Trickster','Nemesis','Pinhead','Artist','Sadako','Dredge','Wesker','Knight','Skull Merchant','Singularity','Alien','Chucky','Unknown','Vecna','Dracula','Houndmaster','Ghoul','Springtrap','Krasue'];
+const MAPS = ['Coal Tower','Shelter Woods','Suffocation Pit','Groaning Storehouse','Ironworks of Misery','Autohaven Wreckers','Azarov’s Resting Place','Blood Lodge','Gas Heaven','Wreckers’ Yard','Wretched Shop','Rancid Abattoir','Thompson House','Torment Creek','Rotten Fields','Fractured Cowshed','Disturbed Ward','Father Campbell’s Chapel','Haddonfield','Grim Pantry','Pale Rose','Léry’s Memorial','Mother’s Dwelling','Temple of Purgation','Badham Preschool','Gideon Meat Plant','Family Residence','Sanctum of Wrath','Mount Ormond','Ormond Lake Mine','Dead Dawg Saloon','Midwich Elementary','RPD','Eyrie of Crows','Dead Sands','Garden of Joy','Greenville Square','Freddy Fazbear’s Pizza','Fallen Refuge','Shattered Square','Forgotten Ruins','Toba Landing','Nostromo Wreckage'];
+$('#killers').innerHTML = KILLERS.map(k => `<option value="${esc(k)}">`).join('');
+$('#maps').innerHTML = MAPS.map(k => `<option value="${esc(k)}">`).join('');
+
+const MIN_P = 6, MAX_P = 10;
+const BO = id => id === 'F' ? 5 : 3;
+const NEED = id => id === 'F' ? 3 : 2;
+const OWNERS = id => id === 'F' ? [0, 1, 0, 1, 's'] : [0, 1, 's'];
+const MAXV = { hooks: 12, kills: 4, gens: 5 };
+const pairs = n => Array.from({ length: n }, () => [null, null]);
+const emptyMatch = bo => ({ bans: ['', ''], picks: Array(bo).fill(''), maps: Array(bo).fill(''), builds: Array(bo).fill(''), hooks: pairs(bo), kills: pairs(bo), gens: pairs(bo), decOpener: null, surv: null });
+function normMatch(d, bo) {
+  const m = emptyMatch(bo); if (!d || typeof d !== 'object') return m;
+  ['bans', 'picks', 'maps', 'builds'].forEach(k => { if (Array.isArray(d[k])) m[k] = m[k].map((_, i) => typeof d[k][i] === 'string' ? d[k][i].slice(0, 80) : ''); });
+  ['hooks', 'kills', 'gens'].forEach(k => { if (Array.isArray(d[k])) m[k] = m[k].map((_, i) => [0, 1].map(j => { const v = d[k]?.[i]?.[j]; return Number.isFinite(v) ? Math.max(0, Math.min(MAXV[k], Math.round(v))) : null; })); });
+  m.decOpener = d.decOpener === 0 || d.decOpener === 1 ? d.decOpener : null;
+  m.surv = Array.isArray(d.surv) ? d.surv.filter(x => typeof x === 'string').slice(0, 4) : null;
+  return m;
+}
+function normState(d) {
+  const s = { v: 2, players: [], groups: { A: [], B: [] }, drawn: false, matches: {} };
+  if (d && Array.isArray(d.players)) d.players.forEach(p => { if (p && typeof p.id === 'string' && typeof p.name === 'string' && s.players.length < MAX_P) s.players.push({ id: p.id, name: p.name.slice(0, 24) }); });
+  const ids = new Set(s.players.map(p => p.id));
+  ['A', 'B'].forEach(g => { if (d && d.groups && Array.isArray(d.groups[g])) s.groups[g] = d.groups[g].filter(x => ids.has(x)); });
+  s.drawn = !!(d && d.drawn);
+  if (d && d.matches && typeof d.matches === 'object') Object.entries(d.matches).forEach(([k, v]) => { s.matches[k] = normMatch(v, BO(k)); });
+  return s;
+}
+const DEFAULT_STATE = {"v":2,"players":[{"id":"p1","name":"Rodriguin"},{"id":"p2","name":"Daniboy"},{"id":"p3","name":"Vitor"},{"id":"p4","name":"Rafael"},{"id":"p5","name":"Barbosa"},{"id":"p6","name":"Caio"}],"groups":{"A":["p1","p2","p3"],"B":["p4","p5","p6"]},"drawn":false,"matches":{}};
+let state = normState(DEFAULT_STATE);
+const nameOf = id => (state.players.find(p => p.id === id) || {}).name || '—';
+const groupOf = id => state.groups.A.includes(id) ? 'A' : state.groups.B.includes(id) ? 'B' : null;
+const getMatch = id => state.matches[id] || emptyMatch(BO(id));
+const ensure = id => (state.matches[id] ||= emptyMatch(BO(id)));
+const both = p => p[0] != null && p[1] != null;
+const touched = m => m.hooks.some(h => h[0] != null || h[1] != null) || m.bans.some(Boolean) || m.picks.some(Boolean) || m.maps.some(Boolean);
+
+function gameResult(m, gi) {
+  const h = m.hooks[gi]; if (!both(h)) return { r: null };
+  if (h[0] !== h[1]) return { r: h[0] > h[1] ? 0 : 1, by: 'hooks' };
+  const k = m.kills[gi]; if (!both(k)) return { r: 'tb', step: 'kills' };
+  if (k[0] !== k[1]) return { r: k[0] > k[1] ? 0 : 1, by: 'kills' };
+  const g = m.gens[gi]; if (!both(g)) return { r: 'tb', step: 'gens' };
+  if (g[0] !== g[1]) return { r: g[0] < g[1] ? 0 : 1, by: 'gens' };
+  return { r: 'tie' };
+}
+function score(m, id) {
+  const need = NEED(id), s = [0, 0], counted = []; let current = null;
+  for (let gi = 0; gi < BO(id); gi++) {
+    if (s[0] === need || s[1] === need) break;
+    const r = gameResult(m, gi).r;
+    if (r === 0 || r === 1) { s[r]++; counted.push(gi); } else { current = gi; break; }
+  }
+  const winner = s[0] === need ? 0 : s[1] === need ? 1 : null;
+  return { s, winner, counted, current, lastAvail: winner != null ? counted[counted.length - 1] : current };
+}
+const openerOf = (m, id, gi) => { const o = OWNERS(id)[gi]; return o === 's' ? m.decOpener : o; };
+
+function roundRobin(ids) {
+  const list = [...ids]; if (list.length % 2) list.push(null);
+  const n = list.length, rounds = [];
+  for (let r = 0; r < n - 1; r++) {
+    const ps = [];
+    for (let i = 0; i < n / 2; i++) { const a = list[i], b = list[n - 1 - i]; if (a && b) ps.push(r % 2 ? [b, a] : [a, b]); }
+    rounds.push(ps); list.splice(1, 0, list.pop());
+  }
+  return rounds;
+}
+function standings(g, sched) {
+  const rows = state.groups[g].map(id => ({ id, name: nameOf(id), w: 0, l: 0, gw: 0, gl: 0, hooks: 0, games: 0, any: false }));
+  const by = Object.fromEntries(rows.map(r => [r.id, r]));
+  const ms = sched.filter(x => x.g === g); let complete = ms.length > 0;
+  ms.forEach(mt => {
+    const m = getMatch(mt.id), sc = score(m, mt.id), a = by[mt.p[0]], b = by[mt.p[1]];
+    a.gw += sc.s[0]; a.gl += sc.s[1]; b.gw += sc.s[1]; b.gl += sc.s[0];
+    sc.counted.forEach(gi => { a.hooks += m.hooks[gi][0]; b.hooks += m.hooks[gi][1]; a.games++; b.games++; });
+    if (touched(m)) a.any = b.any = true;
+    if (sc.winner === 0) { a.w++; b.l++; } else if (sc.winner === 1) { b.w++; a.l++; } else complete = false;
+  });
+  rows.forEach(r => r.avg = r.games ? r.hooks / r.games : 0);
+  rows.sort((x, y) => y.w - x.w || (y.gw - y.gl) - (x.gw - x.gl) || y.avg - x.avg || y.hooks - x.hooks);
+  return { rows, complete, started: rows.some(r => r.any) };
+}
+let model = null;
+function compute() {
+  const sched = [], rr = { A: roundRobin(state.groups.A), B: roundRobin(state.groups.B) };
+  const R = Math.max(rr.A.length, rr.B.length);
+  for (let r = 0; r < R; r++) {
+    const a = rr.A[r] || [], b = rr.B[r] || [];
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+      if (a[i]) sched.push({ id: `A.${a[i][0]}.${a[i][1]}`, g: 'A', p: a[i] });
+      if (b[i]) sched.push({ id: `B.${b[i][0]}.${b[i][1]}`, g: 'B', p: b[i] });
+    }
+  }
+  const st = { A: standings('A', sched), B: standings('B', sched) };
+  const fin = [st.A.complete ? st.A.rows[0].id : null, st.B.complete ? st.B.rows[0].id : null];
+  const all = [...sched, { id: 'F', g: 'F', p: fin }];
+  const ids = state.players.map(p => p.id).filter(groupOf), count = {}, last = {};
+  ids.forEach(x => { count[x] = 0; last[x] = -1; });
+  all.forEach((mt, k) => {
+    mt.idx = k; mt.surv = []; mt.out = [];
+    if (mt.p.includes(null)) return;
+    const elig = ids.filter(x => !mt.p.includes(x));
+    const m = state.matches[mt.id];
+    let s = m && Array.isArray(m.surv) && m.surv.length === Math.min(4, elig.length) && m.surv.every(x => elig.includes(x)) ? m.surv : null;
+    if (!s) {
+      const cost = x => count[x] * 2 + (mt.g !== 'F' && groupOf(x) === mt.g ? 1 : 0);
+      s = [...elig].sort((x, y) => cost(x) - cost(y) || last[x] - last[y] || ids.indexOf(x) - ids.indexOf(y)).slice(0, 4);
+      s = elig.filter(x => s.includes(x));
+    }
+    s.forEach(x => { count[x]++; last[x] = k; });
+    mt.surv = s; mt.out = elig.filter(x => !s.includes(x));
+  });
+  const next = all.find(mt => !mt.p.includes(null) && score(getMatch(mt.id), mt.id).winner == null) || null;
+  model = { sched, all, st, fin, next, byId: Object.fromEntries(all.map(mt => [mt.id, mt])) };
+  return model;
+}
+function warnings(m, id) {
+  const out = [], n = s => s.trim().toLowerCase();
+  const bans = m.bans.map(n).filter(Boolean);
+  m.picks.forEach(p => { if (p.trim() && bans.includes(n(p))) out.push(`${p.trim()} está banido.`); });
+  const picks = m.picks.map(n).filter(Boolean);
+  if (new Set(picks).size < picks.length) out.push('Tem killer repetido nas escolhas.');
+  m.hooks.forEach((_, gi) => { if (gameResult(m, gi).r === 'tie') out.push(`Jogo ${gi + 1} empatou em ganchos, kills e geradores. Joguem de novo e registrem o placar novo.`); });
+  return out;
+}
+
+/* ---------- Rendering ---------- */
+const fmtAvg = v => v.toFixed(1).replace('.', ',');
+function gameLines(mt) {
+  const m = getMatch(mt.id), sc = score(m, mt.id), [p1, p2] = mt.p.map(nameOf), own = OWNERS(mt.id);
+  const upto = sc.lastAvail ?? 0;
+  return m.hooks.map((h, gi) => {
+    if (gi > upto && !h.some(v => v != null)) return '';
+    const res = gameResult(m, gi), o = own[gi];
+    const k = m.picks[gi].trim() || 'killer a definir';
+    const who = o === 's' ? 'sobreviventes' : [p1, p2][o];
+    const map = m.maps[gi].trim();
+    let right;
+    if (!h.some(v => v != null)) right = '<span>a jogar</span>';
+    else {
+      right = `<span class="${res.r === 0 ? 'w' : ''}">${esc(p1)} ${h[0] ?? '–'}</span> × <span class="${res.r === 1 ? 'w' : ''}">${h[1] ?? '–'} ${esc(p2)}</span>`;
+      if (res.by === 'kills') right += '<small>desempate nas kills</small>';
+      else if (res.by === 'gens') right += '<small>desempate nos geradores</small>';
+      else if (res.r === 'tb') right += '<small class="tie">empate · falta desempate</small>';
+      else if (res.r === 'tie') right += '<small class="tie">empate total · rejogar</small>';
+    }
+    return `<div class="game"><div class="gl"><b>Jogo ${gi + 1}</b> · ${esc(k)} (${esc(who)})${map ? `<span class="map">${esc(map)}</span>` : ''}</div><div class="gr">${right}</div></div>`;
+  }).join('');
+}
+function cardHTML(mt) {
+  const m = getMatch(mt.id), sc = score(m, mt.id), locked = mt.p.includes(null);
+  const [p1, p2] = locked ? ['1º do Grupo A', '1º do Grupo B'] : mt.p.map(nameOf);
+  const isNext = model.next && model.next.id === mt.id;
+  const state_ = sc.winner != null ? 'done' : touched(m) ? 'live' : '';
+  let body;
+  if (locked) body = '<div class="empty">Liberada quando os dois grupos terminarem.</div>';
+  else if (!touched(m)) body = `<div class="empty">${canEdit ? 'Toque para registrar bans, killers e ganchos.' : 'Ainda não jogada.'}</div>`;
+  else body = `<div class="games">${gameLines(mt)}</div>`;
+  const bans = m.bans.map((b, i) => b.trim() ? `${b.trim()} (${[p1, p2][i]})` : '').filter(Boolean);
+  return `<article class="card${locked ? ' disabled' : ''}${isNext ? ' is-next' : ''}" ${locked ? 'aria-disabled="true"' : `role="button" tabindex="0" data-open="${esc(mt.id)}"`} aria-label="${esc(p1)} contra ${esc(p2)}">
+    <div class="card-head"><span class="vs">${esc(p1)} <i>×</i> ${esc(p2)}</span>${isNext ? '<span class="chip now-chip">Agora</span>' : ''}<span class="pill ${state_}">${sc.s[0]}–${sc.s[1]}</span></div>
+    ${mt.surv.length ? `<div class="meta">Sobreviventes: ${mt.surv.map(nameOf).map(esc).join(', ')}</div>` : ''}
+    ${mt.out.length ? `<div class="meta out">Fora: ${mt.out.map(nameOf).map(esc).join(', ')}</div>` : ''}
+    ${bans.length ? `<div class="meta">Banidos: ${bans.map(esc).join(', ')}</div>` : ''}
+    ${body}</article>`;
+}
+function renderNow() {
+  const el = $('#now'); let html = '';
+  if (sysMsg) html += `<div class="now alert"><div><span class="eyebrow" style="color:var(--bad)">Aviso</span><strong>${esc(sysMsg)}</strong></div><button type="button" class="btn pressable" data-dismiss>Ok</button></div>`;
+  if (conflict && canEdit) {
+    html += `<div class="now alert"><div><span class="eyebrow" style="color:var(--bad)">Não salvou</span><strong>Tem alterações suas que não foram salvas.</strong><span>Outra pessoa salvou antes, ou a página fechou antes de salvar. A tela mostra o que está no GitHub agora. Reaplicar substitui o que estiver salvo pela sua versão.</span></div><div class="draw-bar"><button type="button" class="btn pressable" data-pending="drop">Descartar as minhas</button><button type="button" class="btn solid pressable" data-pending="apply">Reaplicar e salvar</button></div></div>`;
+  }
+  if (!state.drawn) {
+    html += `<div class="now notice"><div><span class="eyebrow">Antes de começar</span><strong>Grupos ainda não definidos</strong><span>${canEdit ? 'Cadastre os jogadores e sorteie ou monte os grupos.' : 'Os organizadores ainda vão sortear os grupos.'}</span></div>${canEdit ? '<button type="button" class="btn solid pressable" data-open-players>Definir grupos</button>' : ''}</div>`;
+  } else if (!model.next) {
+    const m = getMatch('F'), sc = score(m, 'F');
+    if (sc.winner != null) html += `<div class="now champ-strip"><div><span class="eyebrow">Campeão</span><strong>${esc(nameOf(model.fin[sc.winner]))}</strong><span>Venceu a final por ${Math.max(...sc.s)}–${Math.min(...sc.s)}.</span></div></div>`;
+  } else {
+    const nx = model.next, m = getMatch(nx.id), sc = score(m, nx.id), gi = sc.current ?? 0, [p1, p2] = nx.p.map(nameOf);
+    const op = openerOf(m, nx.id, gi), killer = m.picks[gi].trim(), map = m.maps[gi].trim();
+    const step = !touched(m) ? 'Comecem pelos bans e pelas escolhas de killer.'
+      : `Jogo ${gi + 1} · ${killer ? esc(killer) : 'killer a definir'} · abre ${op == null ? 'quem o sorteio mandar' : esc([p1, p2][op])}${map ? ' · ' + esc(map) : ''}`;
+    html += `<div class="now g-${nx.g}"><div><span class="eyebrow">Agora · ${nx.g === 'F' ? 'Grande final' : 'Grupo ' + nx.g} · ${sc.s[0]}–${sc.s[1]}</span><strong>${esc(p1)} × ${esc(p2)}</strong><span>${step}</span><span>Sobreviventes: ${nx.surv.map(nameOf).map(esc).join(', ')}${nx.out.length ? ' · Fora: ' + nx.out.map(nameOf).map(esc).join(', ') : ''}</span></div><button type="button" class="btn solid pressable" data-open="${esc(nx.id)}">${canEdit ? 'Abrir ficha' : 'Ver detalhes'}</button></div>`;
+  }
+  el.innerHTML = html; el.hidden = !html;
+}
+function renderGroups() {
+  $('#groups').innerHTML = ['A', 'B'].map(g => {
+    const st = model.st[g], ms = model.sched.filter(x => x.g === g);
+    const rows = st.rows.map((r, i) => {
+      let chip = '';
+      if (i === 0 && st.complete) chip = '<span class="chip">Final</span>';
+      else if (i === 0 && st.started) chip = '<span class="chip prov">lidera</span>';
+      return `<tr><td class="name">${esc(r.name)}${chip}</td><td>${r.w}</td><td>${r.l}</td><td>${r.gw}-${r.gl}</td><td>${r.hooks}</td><td>${fmtAvg(r.avg)}</td></tr>`;
+    }).join('');
+    return `<section class="group g-${g}">
+      <h2 class="group-title"><span class="dot"></span>Grupo ${g}<small>${st.rows.length} jogadores · ${ms.length} partidas</small></h2>
+      <div class="table-wrap"><table><thead><tr><th>Jogador</th><th>V</th><th>D</th><th>Jogos</th><th>Ganchos</th><th>Média</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="caption">Partidas · melhor de 3 · na ordem de jogo</p>
+      <div class="matches">${ms.map(cardHTML).join('')}</div></section>`;
+  }).join('');
+}
+function renderFinal() {
+  const [a, b] = model.fin, m = getMatch('F'), sc = score(m, 'F');
+  const champ = sc.winner != null && a && b ? nameOf(model.fin[sc.winner]) : null;
+  const side = (id, g) => `<div class="side ${id ? '' : 'tbd'}"><small>1º do Grupo ${g}</small><strong>${id ? esc(nameOf(id)) : 'A definir'}</strong></div>`;
+  $('#final').innerHTML = `<div class="final-hero"><p class="eyebrow">Grande final · melhor de 5</p>
+      <div class="duel">${side(a, 'A')}<span class="x">×</span>${side(b, 'B')}</div>
+      ${champ ? `<div class="champ"><span>Campeão</span><strong>${esc(champ)}</strong></div>` : (!a || !b ? '<p class="final-note">Os líderes de cada grupo se enfrentam aqui quando todas as partidas de grupo tiverem vencedor.</p>' : '')}
+    </div><div class="g-F">${cardHTML(model.byId.F)}</div>`;
+}
+function render() {
+  compute(); renderNow(); renderGroups(); renderFinal();
+  $('#subtitle').textContent = `Dead by Daylight · ${state.players.length} jogadores · MD3 nos grupos, MD5 na final`;
+  if (sheetKind === 'match') refreshSheet();
+  measure();
+}
+
+/* ---------- GitHub storage + organizer password ----------
+   Results live in data.json on the "dados" branch (so saving does not rebuild the site).
+   auth.json, on the main branch, holds a GitHub token encrypted with the organizer password. */
+const CFG = (() => {
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/i);
+  const seg = location.pathname.split('/').filter(Boolean)[0];
+  const owner = m ? m[1] : 'rotriguin';   // fora do GitHub Pages (teste local), usa estes dois
+  const repo = m ? (seg && !/\.html?$/i.test(seg) ? seg : `${m[1]}.github.io`) : 'copa-do-gancho';
+  return { owner, repo, dataBranch: 'dados', dataPath: 'data.json', authPath: 'auth.json' };
+})();
+const API = `https://api.github.com/repos/${CFG.owner}/${CFG.repo}`;
+let token = ls.get('cg-token'), canEdit = !!token, dirty = false, saving = false, remoteSha = null;
+let conflict = null, sysMsg = '', authInfo = undefined, authSha = null, loadedOnce = false, loginBusy = false;
+
+function gh(path, opts = {}) {
+  const headers = { Accept: 'application/vnd.github+json' };
+  if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
+  if (opts.body) headers['Content-Type'] = 'application/json';
+  return fetch(API + path, { method: opts.method || 'GET', headers, body: opts.body ? JSON.stringify(opts.body) : undefined, cache: 'no-store' });
+}
+const b64enc = str => { const u = new TextEncoder().encode(str); let bin = ''; for (let i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(bin); };
+const b64dec = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), c => c.charCodeAt(0)));
+const toB64 = u8 => btoa(String.fromCharCode(...u8));
+const fromB64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+
+function setStatus(s, text) {
+  const el = $('#status');
+  const t = text || { view: 'Só visualização', edit: 'Organizador', dirty: 'Alterações não salvas', saving: 'Salvando…', error: 'Erro ao salvar', loading: 'Carregando…' }[s];
+  el.dataset.s = s; el.lastElementChild.textContent = t;
+  $('#save-btn').hidden = !(canEdit && (dirty || s === 'error'));
+  $('#save-btn').disabled = saving;
+}
+function markDirty() { if (!canEdit) return; dirty = true; ls.set('cg-pending', state); setStatus('dirty'); }
+function applyAccess() {
+  $('#edit-players').hidden = !canEdit;
+  $('#login-btn').textContent = canEdit ? 'Acesso' : 'Entrar';
+  if (!canEdit) $('#save-btn').hidden = true;
+  render();
+  if (sheetKind && sheetKind !== 'login') closeSheet();
+}
+
+async function loadRemote() {
+  try {
+    const r = await gh(`/contents/${CFG.dataPath}?ref=${CFG.dataBranch}`, { token });
+    if (r.status === 401 && token) { logout('Sua chave de organizador não vale mais. Entre de novo.'); return loadRemote(); }
+    if (r.status === 404) { remoteSha = null; return { data: null }; }
+    if (!r.ok) throw new Error(String(r.status));
+    const j = await r.json(); remoteSha = j.sha;
+    return { data: JSON.parse(b64dec(j.content)) };
+  } catch (e) {
+    try {   // rate-limited or offline API: fall back to the raw file (can lag a few minutes)
+      const r = await fetch(`https://raw.githubusercontent.com/${CFG.owner}/${CFG.repo}/${CFG.dataBranch}/${CFG.dataPath}`, { cache: 'no-store' });
+      if (r.status === 404) return { data: null };
+      if (r.ok) return { data: await r.json(), stale: true };
+    } catch (e2) {}
+    return null;
+  }
+}
+async function refresh() {
+  if (saving) return;
+  const res = await loadRemote();
+  if (!res) { if (!loadedOnce) setStatus('error', 'Sem conexão com o GitHub'); return; }
+  loadedOnce = true;
+  if (dirty || saving) return;            // never overwrite unsaved local edits
+  const next = normState(res.data || DEFAULT_STATE);
+  if (JSON.stringify(next) !== JSON.stringify(state)) { state = next; render(); }
+  setStatus(canEdit ? 'edit' : 'view');
+}
+function poll() {
+  setTimeout(async () => {
+    if (document.visibilityState === 'visible' && !dirty && !saving && !(sheetKind === 'players')) await refresh();
+    poll();
+  }, token ? 20000 : 75000);
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !dirty && !saving) refresh(); });
+addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+async function ensureBranch() {
+  const b = await gh(`/branches/${CFG.dataBranch}`, { token });
+  if (b.ok) return;
+  const repo = await (await gh('', { token })).json();
+  const ref = await (await gh(`/git/ref/heads/${repo.default_branch}`, { token })).json();
+  await gh('/git/refs', { method: 'POST', token, body: { ref: `refs/heads/${CFG.dataBranch}`, sha: ref.object.sha } });
+}
+async function save() {
+  if (!canEdit || !dirty || saving) return;
+  saving = true; setStatus('saving');
+  try {
+    if (!remoteSha) await ensureBranch();
+    const body = { message: 'Atualiza a Copa do Gancho', content: b64enc(JSON.stringify(state, null, 1) + '\n'), branch: CFG.dataBranch };
+    if (remoteSha) body.sha = remoteSha;
+    const r = await gh(`/contents/${CFG.dataPath}`, { method: 'PUT', token, body });
+    saving = false;
+    if (r.ok) {
+      const j = await r.json(); remoteSha = j.content.sha; dirty = false; ls.del('cg-pending');
+      setStatus('edit', 'Salvo'); render(); return;
+    }
+    if (r.status === 409 || r.status === 422) {          // someone else saved first
+      conflict = clone(state); dirty = false;
+      const res = await loadRemote(); state = normState(res && res.data || DEFAULT_STATE);
+      render(); setStatus('error', 'Outra pessoa salvou antes'); return;
+    }
+    if (r.status === 401) { logout('Sua chave de organizador não vale mais. Peça para o dono do repositório reconfigurar a senha.'); return; }
+    if (r.status === 403 && r.headers.get('x-ratelimit-remaining') !== '0') { logout('A chave não tem permissão de escrita neste repositório.'); return; }
+    setStatus('error', 'Erro ao salvar, tente de novo');
+  } catch (e) { saving = false; setStatus('error', 'Sem conexão, tente salvar de novo'); }
+}
+
+/* Password: PBKDF2 → AES-GCM over the GitHub token */
+const ITER = 310000;
+async function deriveKey(pass, salt, iter) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function encryptToken(tok, pass) {
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(pass, salt, ITER);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(tok)));
+  return { v: 1, kdf: 'PBKDF2-SHA256', iter: ITER, salt: toB64(salt), iv: toB64(iv), data: toB64(ct) };
+}
+async function decryptToken(info, pass) {
+  const key = await deriveKey(pass, fromB64(info.salt), info.iter || ITER);
+  return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(info.iv) }, key, fromB64(info.data)));
+}
+async function loadAuth() {
+  try {
+    const r = await gh(`/contents/${CFG.authPath}`, { token });
+    if (r.status === 404) { authInfo = null; authSha = null; return; }
+    if (r.ok) { const j = await r.json(); authSha = j.sha; authInfo = JSON.parse(b64dec(j.content)); return; }
+  } catch (e) {}
+  try {
+    const r = await fetch(`${CFG.authPath}?t=${Date.now()}`, { cache: 'no-store' });
+    if (r.status === 404) { authInfo = null; return; }
+    if (r.ok) { authInfo = await r.json(); return; }
+  } catch (e) {}
+  authInfo = undefined;
+}
+async function writeAuth(tok, pass) {
+  const info = await encryptToken(tok, pass);
+  try { const r = await gh(`/contents/${CFG.authPath}`, { token: tok }); authSha = r.ok ? (await r.json()).sha : null; } catch (e) {}
+  const body = { message: 'Configura a senha de organizador', content: b64enc(JSON.stringify(info, null, 1) + '\n') };
+  if (authSha) body.sha = authSha;
+  const r = await gh(`/contents/${CFG.authPath}`, { method: 'PUT', token: tok, body });
+  if (!r.ok) throw r.status;
+  authSha = (await r.json()).content.sha; authInfo = info;
+}
+function afterLogin(tok) {
+  token = tok; ls.set('cg-token', tok); canEdit = true; sysMsg = '';
+  closeSheet(); applyAccess(); setStatus('edit'); refresh(); buzz();
+}
+function logout(msg) {
+  token = null; ls.del('cg-token'); canEdit = false; sysMsg = msg || '';
+  applyAccess(); setStatus('view');
+}
+function buildLoginSheet() {
+  const repoTxt = `${CFG.owner}/${CFG.repo}`;
+  let body;
+  if (canEdit) {
+    body = `<p class="ro-note">Você está como organizador neste aparelho. Suas alterações vão direto para o repositório <strong>${esc(repoTxt)}</strong>.</p>
+      <section class="sec"><h3>Trocar a senha</h3><div class="fields two">
+        <label class="field"><span>Nova senha</span><input type="password" id="lg-p1" autocomplete="new-password" minlength="6"></label>
+        <label class="field"><span>Repita a nova senha</span><input type="password" id="lg-p2" autocomplete="new-password" minlength="6"></label></div>
+        <p class="hint">A senha antiga para de funcionar em todos os aparelhos. Quem já está logado continua logado.</p></section>
+      <p class="warn" id="lg-msg" hidden></p>
+      <div class="draw-bar"><button type="button" class="btn pressable" data-lg="logout">Sair deste aparelho</button><button type="button" class="btn solid pressable" data-lg="change" data-lg-primary>Trocar senha</button></div>`;
+  } else if (authInfo === null) {
+    body = `<p class="ro-note">Ainda não tem senha de organizador. Isso é feito uma vez só, por quem é dono do repositório <strong>${esc(repoTxt)}</strong>.</p>
+      <section class="sec"><h3>1 · Crie uma chave no GitHub</h3>
+        <ol class="ro-note" style="padding-left:18px;display:flex;flex-direction:column;gap:4px">
+          <li>Abra <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a>.</li>
+          <li>Em <strong>Repository access</strong>, escolha <em>Only select repositories</em> e marque <strong>${esc(CFG.repo)}</strong>.</li>
+          <li>Em <strong>Permissions → Contents</strong>, escolha <em>Read and write</em>.</li>
+          <li>Coloque uma validade que passe do fim do campeonato, gere e copie a chave.</li>
+        </ol></section>
+      <section class="sec"><h3>2 · Cole a chave e escolha a senha</h3><div class="fields">
+        <label class="field"><span>Chave do GitHub</span><input type="password" id="lg-token" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></label></div>
+        <div class="fields two" style="margin-top:10px">
+        <label class="field"><span>Senha de organizador</span><input type="password" id="lg-p1" autocomplete="new-password" minlength="6"></label>
+        <label class="field"><span>Repita a senha</span><input type="password" id="lg-p2" autocomplete="new-password" minlength="6"></label></div>
+        <p class="hint">A chave fica salva no repositório, trancada com essa senha. Use uma senha que não dê para chutar.</p></section>
+      <p class="warn" id="lg-msg" hidden></p>
+      <div class="draw-bar"><button type="button" class="btn solid pressable" data-lg="setup" data-lg-primary>Salvar e entrar</button></div>`;
+  } else if (authInfo === undefined) {
+    body = `<p class="warn">Não consegui falar com o GitHub agora. Confira a internet e tente de novo.</p>`;
+  } else {
+    body = `<p class="ro-note">Digite a senha de organizador para registrar resultados e mexer nos grupos.</p>
+      <div class="fields"><label class="field"><span>Senha</span><input type="password" id="lg-pass" autocomplete="current-password"></label></div>
+      <p class="warn" id="lg-msg" hidden></p>
+      <div class="draw-bar"><button type="button" class="btn solid pressable" data-lg="login" data-lg-primary>Entrar</button></div>`;
+  }
+  sheet.innerHTML = `<div class="sheet-head" id="sheet-head"><div class="grabber"></div>
+      <div class="sh-row"><div><p class="eyebrow">Organização</p><h2 id="sh-title">${canEdit ? 'Acesso de organizador' : authInfo === null ? 'Configurar a senha' : 'Entrar como organizador'}</h2></div><button type="button" class="icon-btn pressable" data-close aria-label="Fechar">${closeIcon}</button></div></div>
+    <div class="sheet-body">${body}</div>`;
+  setTimeout(() => { const f = $('#lg-pass, #lg-token, #lg-p1', sheet); f && f.focus({ preventScroll: true }); }, RM.matches ? 0 : 320);
+}
+function lgMsg(text) { const m = $('#lg-msg', sheet); if (m) { m.hidden = !text; m.textContent = text || ''; } }
+async function loginClick(t) {
+  const b = t.closest('[data-lg]'); if (!b || b.disabled || loginBusy) return;
+  const act = b.dataset.lg, label = b.textContent;
+  const busy = on => { loginBusy = on; b.disabled = on; b.textContent = on ? 'Aguarde…' : label; };
+  if (act === 'logout') { closeSheet(); logout(); return; }
+  if (act === 'login') {
+    const pass = $('#lg-pass').value; if (!pass) { lgMsg('Digite a senha.'); return; }
+    busy(true); lgMsg('');
+    let tok = null;
+    try { tok = await decryptToken(authInfo, pass); } catch (e) { busy(false); lgMsg('Senha incorreta.'); return; }
+    try { const r = await gh('', { token: tok }); if (r.status === 401) { busy(false); lgMsg('A senha está certa, mas a chave do GitHub expirou ou foi revogada. O dono do repositório precisa configurar de novo.'); return; } } catch (e) {}
+    busy(false); afterLogin(tok); return;
+  }
+  const p1 = $('#lg-p1').value, p2 = $('#lg-p2').value;
+  if (p1.length < 6) { lgMsg('Use uma senha com pelo menos 6 caracteres.'); return; }
+  if (p1 !== p2) { lgMsg('As duas senhas não são iguais.'); return; }
+  if (act === 'setup') {
+    const tok = $('#lg-token').value.trim(); if (!tok) { lgMsg('Cole a chave do GitHub.'); return; }
+    busy(true); lgMsg('');
+    try {
+      const r = await gh('', { token: tok });
+      if (!r.ok) { busy(false); lgMsg(r.status === 401 ? 'Essa chave não é válida.' : `Essa chave não abre o repositório ${CFG.owner}/${CFG.repo}.`); return; }
+      await writeAuth(tok, p1);
+      busy(false); afterLogin(tok);
+    } catch (e) { busy(false); lgMsg(e === 403 || e === 404 ? 'A chave não tem permissão de escrita. Confira Contents: Read and write.' : 'Não consegui salvar a configuração. Tente de novo.'); }
+    return;
+  }
+  if (act === 'change') {
+    busy(true); lgMsg('');
+    try { await writeAuth(token, p1); busy(false); closeSheet(); sysMsg = ''; setStatus('edit', 'Senha trocada'); }
+    catch (e) { busy(false); lgMsg('Não consegui trocar a senha. Tente de novo.'); }
+  }
+}
+
+/* ---------- Press feedback on pointer-down ---------- */
+const pressSprings = new WeakMap(); let pressed = [];
+function pressSpring(el) {
+  let s = pressSprings.get(el);
+  if (!s) { s = new Spring(1, { damping: 1, response: 0.2, precision: 0.0005 }, v => { el.style.transform = v === 1 ? '' : `scale(${v})`; }); pressSprings.set(el, s); }
+  return s;
+}
+document.addEventListener('pointerdown', e => {
+  const el = e.target.closest('.card[data-open], .pressable, .chipbtn');
+  if (!el || el.disabled) return;
+  pressSpring(el).to(el.classList.contains('card') ? 0.975 : 0.93, { damping: 1, response: 0.18 }); pressed.push(el);
+}, true);
+function releasePress() { pressed.forEach(el => pressSpring(el).to(1, { damping: 1, response: 0.3 })); pressed = []; }
+['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, releasePress, true));
+
+/* ---------- Pager + segmented control ---------- */
+const pager = $('#pager'), track = $('#track'), pages = $$('.page', track), segBtns = $$('.seg button'), thumb = $('.seg-thumb');
+let W = pager.clientWidth || 1, idx = 0, thumbW = 0, pdrag = null, suppressClick = false;
+const heights = pages.map(p => p.offsetHeight);
+const pagerSpring = new Spring(0, { damping: 1, response: 0.4, precision: 0.5 }, x => {
+  track.style.transform = `translate3d(${x}px,0,0)`;
+  const prog = -x / W;
+  thumb.style.transform = `translate3d(${Math.max(-0.12, Math.min(pages.length - 0.88, prog)) * thumbW}px,0,0)`;
+  const near = Math.max(0, Math.min(pages.length - 1, Math.round(prog)));
+  segBtns.forEach((b, i) => b.classList.toggle('on', i === near));
+  setHeight(prog);
+});
+function setHeight(prog) {
+  const cl = i => Math.max(0, Math.min(pages.length - 1, i));
+  pager.style.height = Math.max(heights[cl(Math.floor(prog))], heights[cl(Math.ceil(prog))]) + 'px';
+}
+function measure() {
+  pages.forEach((p, i) => heights[i] = p.offsetHeight);
+  W = pager.clientWidth || 1; thumbW = (thumb.parentElement.clientWidth - 4) / 3;
+  if (!pagerSpring.moving && !(pdrag && pdrag.active)) pagerSpring.jump(-idx * W); else setHeight(-pagerSpring.x / W);
+}
+function go(i, v = 0, fromUser = true) {
+  const prev = idx; idx = Math.max(0, Math.min(pages.length - 1, i));
+  segBtns.forEach((b, k) => { b.setAttribute('aria-selected', k === idx); b.tabIndex = k === idx ? 0 : -1; });
+  pages.forEach((p, k) => p.toggleAttribute('inert', k !== idx));
+  pagerSpring.to(-idx * W, { velocity: v, damping: Math.abs(v) > 600 ? 0.85 : 1, response: 0.4 });
+  if (fromUser && prev !== idx) {
+    const top = pager.getBoundingClientRect().top + scrollY - $('#top').offsetHeight - 8;
+    if (scrollY > top) scrollTo({ top, behavior: RM.matches ? 'auto' : 'smooth' });
+  }
+}
+segBtns.forEach((b, i) => b.addEventListener('click', () => go(i)));
+$('.seg').addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { go(idx + (e.key === 'ArrowRight' ? 1 : -1)); segBtns[idx].focus(); e.preventDefault(); }
+});
+new ResizeObserver(measure).observe(pager);
+pages.forEach(p => new ResizeObserver(measure).observe(p));
+addEventListener('scroll', () => $('#top').classList.toggle('scrolled', scrollY > 4), { passive: true });
+
+const pvt = tracker();
+pager.addEventListener('pointerdown', e => {
+  if (e.button !== 0 || sheetKind) return;
+  if (e.target.closest('input, textarea')) return;
+  const wasMoving = pagerSpring.moving; pagerSpring.stop();
+  pdrag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, start: pagerSpring.x, startIdx: idx, active: false, wasMoving };
+  pvt.reset(); pvt.add(e.clientX);
+});
+pager.addEventListener('pointermove', e => {
+  if (!pdrag || e.pointerId !== pdrag.id) return;
+  const dx = e.clientX - pdrag.x0, dy = e.clientY - pdrag.y0;
+  if (!pdrag.active) {
+    if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+      pdrag.active = true; pdrag.x0 += Math.sign(dx) * 10;
+      try { pager.setPointerCapture(e.pointerId); } catch (err) {}
+      track.classList.add('dragging'); releasePress();
+    } else if (Math.abs(dy) > 10) { endPager(false); return; } else return;
+  }
+  const min = -(pages.length - 1) * W;
+  let raw = pdrag.start + (e.clientX - pdrag.x0);
+  if (raw > 0) raw = rubber(raw, W); else if (raw < min) raw = min - rubber(min - raw, W);
+  pagerSpring.jump(raw); pvt.add(e.clientX);
+});
+function endPager(release) {
+  if (!pdrag) return;
+  const d = pdrag; pdrag = null; track.classList.remove('dragging');
+  if (d.active) {
+    const v = release ? pvt.v() : 0, proj = pagerSpring.x + project(v);
+    const target = Math.max(d.startIdx - 1, Math.min(d.startIdx + 1, Math.round(-proj / W)));
+    suppressClick = true; setTimeout(() => suppressClick = false, 0);
+    go(target, v);
+  } else if (d.wasMoving) go(idx, 0, false);
+}
+pager.addEventListener('pointerup', () => endPager(true));
+pager.addEventListener('pointercancel', () => endPager(false));
+pager.addEventListener('click', e => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); suppressClick = false; } }, true);
+
+/* ---------- Bottom sheet ---------- */
+const sheet = $('#sheet'), scrim = $('#scrim');
+let sheetKind = null, sheetId = null, sheetOpen = false, H = 600, returnFocus = null, draft = null;
+const sheetSpring = new Spring(800, { damping: 1, response: 0.35, precision: 0.5 }, y => {
+  sheet.style.transform = `translate3d(0,${y}px,0)`;
+  scrim.style.opacity = Math.max(0, Math.min(1, 1 - y / H));
+});
+const closeIcon = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 1.5l9 9M10.5 1.5l-9 9" stroke-linecap="round"/></svg>';
+const dis = () => canEdit ? '' : 'disabled';
+function field(path, labelTxt, list, value, ph, extra = '') {
+  return `<label class="field"><span>${esc(labelTxt)}${extra}</span><input id="f-${path.replace(/\./g, '-')}" data-path="${path}" list="${list}" autocomplete="off" spellcheck="false" maxlength="80" value="${esc(value)}" placeholder="${esc(ph)}" ${dis()}></label>`;
+}
+function stepper(kind, gi, pi, name, sub) {
+  return `<div class="stepper" data-st="${kind}.${gi}.${pi}"><span class="st-name">${esc(name)}${sub ? `<small>${esc(sub)}</small>` : ''}</span><div class="st-ctl">
+    <button type="button" class="st-btn pressable" data-delta="-1" aria-label="Diminuir ${esc(sub || 'ganchos')} de ${esc(name)}" ${dis()}>−</button>
+    <output class="st-val" aria-live="polite">–</output>
+    <button type="button" class="st-btn pressable" data-delta="1" aria-label="Aumentar ${esc(sub || 'ganchos')} de ${esc(name)}" ${dis()}>+</button></div></div>`;
+}
+function buildMatchSheet(id) {
+  const mt = model.byId[id], m = getMatch(id), [p1, p2] = mt.p.map(nameOf), own = OWNERS(id), bo = BO(id), nm = [p1, p2];
+  const pickLabel = gi => own[gi] === 's' ? 'Killer dos sobreviventes' : (bo === 5 ? `${gi < 2 ? '1º' : '2º'} killer de ${nm[own[gi]]}` : `Killer de ${nm[own[gi]]}`);
+  const elig = state.players.map(p => p.id).filter(x => groupOf(x) && !mt.p.includes(x));
+  const survEditable = canEdit && elig.length > 4;
+  const games = m.hooks.map((_, gi) => {
+    const o = own[gi], dec = o === 's';
+    const note = dec ? 'Escolha dos sobreviventes · quem abre e mapa por sorteio · perks dos sobreviventes'
+      : `Escolha de ${nm[o]} · abre ${nm[o]} · mapa escolhido por ${nm[1 - o]} · perks de ${nm[o]}`;
+    return `<div class="gblock" data-g="${gi}">
+      <div class="gb-head"><b>Jogo ${gi + 1}</b><span class="gb-killer" data-killer="${gi}"></span><span class="gb-note">${esc(note)}</span></div>
+      ${dec ? `<div class="opener">Abre: <strong data-opener="${gi}">a sortear</strong><button type="button" class="btn pressable" data-flip="${gi}" ${dis()}>Sortear quem abre</button></div>` : ''}
+      <div class="fields two">${field(`maps.${gi}`, 'Mapa', 'maps', m.maps[gi], 'Ex.: Coal Tower', canEdit ? `<button type="button" class="mini" data-randmap="${gi}">Sortear mapa</button>` : '')}${field(`builds.${gi}`, 'Perks dos dois', '', m.builds[gi], '4 perks combinadas')}</div>
+      <div class="steppers">${stepper('hooks', gi, 0, p1, 'ganchos')}${stepper('hooks', gi, 1, p2, 'ganchos')}</div>
+      <div class="tb" data-tbk="${gi}" hidden><p class="tb-title">Empate em ganchos: desempate pelas kills</p><div class="steppers">${stepper('kills', gi, 0, p1, 'kills')}${stepper('kills', gi, 1, p2, 'kills')}</div></div>
+      <div class="tb" data-tbg="${gi}" hidden><p class="tb-title">Empate em kills: vence quem deixou fazer menos geradores</p><div class="steppers">${stepper('gens', gi, 0, p1, 'geradores feitos')}${stepper('gens', gi, 1, p2, 'geradores feitos')}</div></div>
+      <div class="gb-foot"><div class="gb-result" data-result="${gi}"></div>${canEdit ? `<button type="button" class="link" data-clear="${gi}">Limpar jogo</button>` : ''}</div>
+    </div>`;
+  }).join('');
+  sheet.innerHTML = `<div class="sheet-head" id="sheet-head"><div class="grabber"></div>
+      <div class="sh-row"><div><p class="eyebrow">${id === 'F' ? 'Grande final · melhor de 5' : `Grupo ${mt.g} · melhor de 3`}</p><h2 id="sh-title">${esc(p1)} × ${esc(p2)}</h2></div>
+      <span class="pill" id="sh-score">0–0</span><button type="button" class="icon-btn pressable" data-close aria-label="Fechar">${closeIcon}</button></div></div>
+    <div class="sheet-body">
+      ${canEdit ? '' : '<p class="ro-note">Modo leitura. Só os organizadores alteram resultados.</p>'}
+      <section class="sec"><h3>Sobreviventes <em>· ${survEditable ? 'toque para trocar, precisam ser 4' : '4 jogadores'}</em></h3><div class="chips" id="surv-chips"></div><p class="hint" id="surv-hint" hidden></p></section>
+      <section class="sec"><h3>Banimentos <em>· 1 por jogador</em></h3><div class="fields two">${field('bans.0', `Ban de ${p1}`, 'killers', m.bans[0], 'Ex.: Nurse')}${field('bans.1', `Ban de ${p2}`, 'killers', m.bans[1], 'Ex.: Blight')}</div></section>
+      <section class="sec"><h3>Killers escolhidos</h3><div class="fields three">${m.picks.map((p, gi) => field(`picks.${gi}`, pickLabel(gi), 'killers', p, KILLERS[(gi * 7 + 11) % KILLERS.length])).join('')}</div></section>
+      <section class="sec"><h3>Jogos <em>· ${bo === 5 ? 'primeiro a 3 vitórias' : 'primeiro a 2 vitórias'}</em></h3><div class="gblocks">${games}</div></section>
+      <p class="warn" id="sh-warn" hidden></p><p class="ok" id="sh-ok" hidden></p>
+    </div>`;
+}
+function refreshSheet() {
+  if (sheetKind !== 'match') return;
+  const mt = model.byId[sheetId]; if (!mt || mt.p.includes(null)) { closeSheet(); return; }
+  const m = getMatch(sheetId), sc = score(m, sheetId), nm = mt.p.map(nameOf);
+  const pill = $('#sh-score'); pill.textContent = `${sc.s[0]}–${sc.s[1]}`;
+  pill.className = 'pill ' + (sc.winner != null ? 'done' : touched(m) ? 'live' : '');
+  $$('#sheet input[data-path]').forEach(inp => {
+    if (document.activeElement === inp) return;
+    const [k, i] = inp.dataset.path.split('.'); if (inp.value !== m[k][+i]) inp.value = m[k][+i];
+  });
+  const elig = state.players.map(p => p.id).filter(x => groupOf(x) && !mt.p.includes(x));
+  const editable = canEdit && elig.length > 4;
+  $('#surv-chips').innerHTML = editable
+    ? elig.map(x => `<button type="button" class="chipbtn${mt.surv.includes(x) ? ' on' : ''}" data-surv="${esc(x)}" aria-pressed="${mt.surv.includes(x)}">${esc(nameOf(x))}</button>`).join('')
+    : mt.surv.map(x => `<span>${esc(nameOf(x))}</span>`).join('');
+  m.hooks.forEach((h, gi) => {
+    const blk = $(`.gblock[data-g="${gi}"]`, sheet), res = gameResult(m, gi);
+    $(`[data-killer="${gi}"]`, sheet).textContent = m.picks[gi].trim() ? `· ${m.picks[gi].trim()}` : '';
+    const opEl = $(`[data-opener="${gi}"]`, sheet);
+    if (opEl) { opEl.textContent = m.decOpener == null ? 'a sortear' : nm[m.decOpener]; const fb = $(`[data-flip="${gi}"]`, sheet); fb.disabled = !canEdit || (m.decOpener != null && h.some(v => v != null)); fb.textContent = m.decOpener == null ? 'Sortear quem abre' : 'Sortear de novo'; }
+    ['hooks', 'kills', 'gens'].forEach(k => [0, 1].forEach(pi => {
+      const st = $(`[data-st="${k}.${gi}.${pi}"]`, sheet), v = m[k][gi][pi];
+      $('.st-val', st).textContent = v == null ? '–' : v;
+      $('.st-name', st).classList.toggle('w', res.r === pi && res.by === k);
+      $('[data-delta="-1"]', st).disabled = !canEdit || v === 0;
+      $('[data-delta="1"]', st).disabled = !canEdit || v === MAXV[k];
+    }));
+    const hooksTie = both(h) && h[0] === h[1], killsTie = hooksTie && both(m.kills[gi]) && m.kills[gi][0] === m.kills[gi][1];
+    $(`[data-tbk="${gi}"]`, sheet).hidden = !hooksTie;
+    $(`[data-tbg="${gi}"]`, sheet).hidden = !killsTie;
+    const r = $(`[data-result="${gi}"]`, sheet);
+    r.innerHTML = res.r === 0 || res.r === 1 ? `<b>${esc(nm[res.r])}</b> vence o jogo${res.by === 'kills' ? ' nas kills' : res.by === 'gens' ? ' nos geradores' : ''}`
+      : res.r === 'tb' ? '<span class="tie">Empate, preencha o desempate</span>' : res.r === 'tie' ? '<span class="tie">Empate total, rejoguem</span>' : '';
+    blk.classList.toggle('locked', gi > (sc.lastAvail ?? 0) && !h.some(v => v != null));
+    blk.classList.toggle('current', gi === sc.current);
+  });
+  const w = warnings(m, sheetId), wEl = $('#sh-warn'), okEl = $('#sh-ok');
+  wEl.hidden = !w.length; wEl.textContent = w.join(' ');
+  okEl.hidden = sc.winner == null; if (sc.winner != null) okEl.textContent = `${nm[sc.winner]} vence a partida por ${Math.max(...sc.s)}–${Math.min(...sc.s)}.`;
+}
+
+/* Players editor works on a draft; nothing changes until "Confirmar". */
+const newId = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function buildPlayersSheet() {
+  draft = { players: clone(state.players), groups: clone(state.groups) };
+  sheet.innerHTML = `<div class="sheet-head" id="sheet-head"><div class="grabber"></div>
+      <div class="sh-row"><div><p class="eyebrow">Organização</p><h2 id="sh-title">Jogadores e grupos</h2></div><button type="button" class="icon-btn pressable" data-close aria-label="Fechar sem confirmar">${closeIcon}</button></div></div>
+    <div class="sheet-body">
+      <p class="ro-note">De ${MIN_P} a ${MAX_P} jogadores. Toque em A ou B para montar na mão, ou sorteie. Nada muda até você confirmar.</p>
+      <section class="sec"><h3>Jogadores</h3><div class="plist" id="plist"></div>
+        <div class="addrow" style="margin-top:8px"><input id="add-name" maxlength="24" placeholder="Nome do novo jogador" autocomplete="off"><button type="button" class="btn pressable" id="add-btn">Adicionar</button></div></section>
+      <p class="counts" id="pcounts"></p>
+      <p class="warn" id="pl-warn" hidden></p>
+      <div class="draw-bar"><button type="button" class="btn pressable" data-draw>Sortear grupos</button><button type="button" class="btn solid pressable" data-confirm>Confirmar grupos</button></div>
+    </div>`;
+  renderPlist();
+}
+function renderPlist() {
+  const order = [...draft.groups.A, ...draft.groups.B, ...draft.players.map(p => p.id).filter(x => !draft.groups.A.includes(x) && !draft.groups.B.includes(x))];
+  $('#plist').innerHTML = order.map(id => {
+    const p = draft.players.find(x => x.id === id), g = draft.groups.A.includes(id) ? 'A' : draft.groups.B.includes(id) ? 'B' : '';
+    return `<div class="prow" data-pid="${esc(id)}"><input data-pname="${esc(id)}" maxlength="24" value="${esc(p.name)}" aria-label="Nome"><div class="ab" role="group" aria-label="Grupo"><button type="button" data-pg="A" class="${g === 'A' ? 'on' : ''}" aria-pressed="${g === 'A'}">A</button><button type="button" data-pg="B" class="${g === 'B' ? 'on' : ''}" aria-pressed="${g === 'B'}">B</button></div><button type="button" class="icon-btn pressable" data-premove="${esc(id)}" aria-label="Remover ${esc(p.name)}" ${draft.players.length <= MIN_P ? 'disabled' : ''}>${closeIcon}</button></div>`;
+  }).join('');
+  validateDraft();
+}
+function validateDraft() {
+  const n = draft.players.length, a = draft.groups.A.length, b = draft.groups.B.length, msgs = [];
+  const names = draft.players.map(p => p.name.trim().toLowerCase());
+  if (names.some(x => !x)) msgs.push('Tem jogador sem nome.');
+  if (new Set(names).size < names.length) msgs.push('Tem nome repetido.');
+  if (a + b < n) msgs.push('Tem jogador sem grupo.');
+  if (a < 3 || b < 3) msgs.push('Cada grupo precisa de pelo menos 3 jogadores.');
+  const changed = JSON.stringify(draft.groups) !== JSON.stringify(state.groups);
+  const played = Object.entries(state.matches).some(([k, m]) => k !== 'F' && touched(m));
+  if (changed && played) msgs.push('Já tem partida registrada. Partidas de confrontos que deixarem de existir saem da tabela.');
+  $('#pcounts').textContent = `${n} jogadores · Grupo A: ${a} · Grupo B: ${b}`;
+  const w = $('#pl-warn'); w.hidden = !msgs.length; w.textContent = msgs.join(' ');
+  const blocking = msgs.length && !(msgs.length === 1 && changed && played);
+  $('[data-confirm]', sheet).disabled = !!blocking;
+  $('#add-btn').disabled = n >= MAX_P; $('#add-name').disabled = n >= MAX_P;
+  $('#add-name').placeholder = n >= MAX_P ? `Máximo de ${MAX_P} jogadores` : 'Nome do novo jogador';
+}
+function setGroup(id, g) { draft.groups.A = draft.groups.A.filter(x => x !== id); draft.groups.B = draft.groups.B.filter(x => x !== id); draft.groups[g].push(id); }
+function drawGroups() {
+  const pool = draft.players.map(p => p.id);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const half = Math.ceil(pool.length / 2);
+  draft.groups.A = pool.slice(0, half); draft.groups.B = pool.slice(half);
+  renderPlist(); buzz();
+  $$('#plist .prow').forEach((row, k) => {
+    const s = new Spring(0, { damping: 0.8, response: 0.34, precision: 0.002 }, v => { row.style.transform = v >= 0.999 ? '' : `translate3d(0,${(1 - v) * 10}px,0) scale(${0.97 + 0.03 * v})`; row.style.opacity = v >= 0.999 ? '' : String(0.3 + 0.7 * v); });
+    s.jump(0); setTimeout(() => s.to(1, { damping: 0.8, response: 0.34 }), RM.matches ? 0 : k * 30);
+  });
+}
+function addPlayer() {
+  const inp = $('#add-name'), name = inp.value.trim().slice(0, 24);
+  if (!name || draft.players.length >= MAX_P) return;
+  const id = newId(); draft.players.push({ id, name });
+  setGroup(id, draft.groups.A.length <= draft.groups.B.length ? 'A' : 'B');
+  inp.value = ''; renderPlist(); inp.focus();
+}
+
+function openSheet(kind, id, from) {
+  sheetKind = kind; sheetId = id; returnFocus = from || document.activeElement;
+  if (kind === 'match') buildMatchSheet(id); else if (kind === 'players') buildPlayersSheet(); else buildLoginSheet();
+  sheet.hidden = false; scrim.hidden = false; document.documentElement.classList.add('locked');
+  if (kind === 'match') refreshSheet();
+  H = sheet.offsetHeight + 16;
+  if (RM.matches) {
+    sheet.style.transform = 'none'; sheet.style.transition = scrim.style.transition = 'opacity .2s ease';
+    sheet.style.opacity = '0'; scrim.style.opacity = '0';
+    requestAnimationFrame(() => { sheet.style.opacity = '1'; scrim.style.opacity = '1'; });
+    sheetOpen = true;
+  } else {
+    if (!sheetOpen && !sheetSpring.moving) sheetSpring.jump(H);
+    sheetOpen = true; sheetSpring.done = null;
+    sheetSpring.to(0, { damping: 1, response: 0.38 });
+  }
+  requestAnimationFrame(() => $('[data-close]', sheet)?.focus({ preventScroll: true }));
+}
+function finishClose() {
+  if (sheetOpen) return;
+  const wasMatch = sheetKind === 'match';
+  sheet.hidden = true; scrim.hidden = true; sheet.innerHTML = ''; sheet.style.opacity = ''; sheet.style.transition = ''; scrim.style.transition = '';
+  sheetKind = null; sheetId = null; draft = null; document.documentElement.classList.remove('locked');
+  if (returnFocus && returnFocus.isConnected) returnFocus.focus({ preventScroll: true });
+  if (wasMatch || dirty) save();
+}
+function closeSheet(v = 0) {
+  if (!sheetKind) return;
+  sheetOpen = false;
+  if (RM.matches) { sheet.style.opacity = '0'; scrim.style.opacity = '0'; setTimeout(finishClose, 200); return; }
+  H = sheet.offsetHeight + 16; sheetSpring.done = finishClose;
+  sheetSpring.to(H, { velocity: v, damping: 1, response: 0.32 });
+}
+scrim.addEventListener('click', () => closeSheet());
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheetKind) closeSheet(); });
+
+// Drag by the header: 1:1, rubber-band upward, commit by throw direction or projected position
+const svt = tracker(); let sdrag = null, sheetDragClick = false;
+sheet.addEventListener('pointerdown', e => {
+  if (RM.matches || !e.target.closest('#sheet-head') || e.button !== 0) return;
+  if (!sheetOpen) { sheetOpen = true; sheetSpring.done = null; }
+  sheetSpring.stop();
+  sdrag = { id: e.pointerId, y0: e.clientY, start: sheetSpring.x, active: false };
+  svt.reset(); svt.add(e.clientY);
+});
+sheet.addEventListener('pointermove', e => {
+  if (!sdrag || e.pointerId !== sdrag.id) return;
+  const dy = e.clientY - sdrag.y0;
+  if (!sdrag.active) {
+    if (Math.abs(dy) <= 10) return;
+    sdrag.active = true; sdrag.y0 += Math.sign(dy) * 10;
+    try { $('#sheet-head').setPointerCapture(e.pointerId); } catch (err) {}
+    releasePress();
+  }
+  let y = sdrag.start + (e.clientY - sdrag.y0);
+  if (y < 0) y = -rubber(-y, 120);
+  sheetSpring.jump(y); svt.add(e.clientY);
+});
+function endSheetDrag(release) {
+  if (!sdrag) return;
+  const d = sdrag; sdrag = null;
+  if (!d.active) { if (!sheetSpring.moving && sheetSpring.x !== 0) sheetSpring.to(0); return; }
+  const v = release ? svt.v() : 0; H = sheet.offsetHeight + 16;
+  const close = Math.abs(v) > 300 ? v > 0 : sheetSpring.x + project(v) > H * 0.42;
+  if (close) closeSheet(v); else sheetSpring.to(0, { velocity: v, damping: Math.abs(v) > 300 ? 0.8 : 1, response: 0.3 });
+  sheetDragClick = true; setTimeout(() => sheetDragClick = false, 0);
+}
+sheet.addEventListener('pointerup', () => endSheetDrag(true));
+sheet.addEventListener('pointercancel', () => endSheetDrag(false));
+
+function afterMatchEdit(before) {
+  const m = getMatch(sheetId);
+  if (!m.surv) m.surv = model.byId[sheetId].surv.slice();   // freeze survivors once a match is touched
+  markDirty(); render();
+  if (before != null && String(score(m, sheetId).winner) !== before) buzz();
+}
+sheet.addEventListener('click', e => {
+  if (sheetDragClick) { e.preventDefault(); e.stopPropagation(); return; }
+  const t = e.target;
+  if (t.closest('[data-close]')) { closeSheet(); return; }
+  if (sheetKind === 'login') { loginClick(t); return; }
+  if (!canEdit) return;
+  if (sheetKind === 'players') {
+    const pg = t.closest('[data-pg]');
+    if (pg) { setGroup(pg.closest('.prow').dataset.pid, pg.dataset.pg); renderPlist(); return; }
+    const rm = t.closest('[data-premove]');
+    if (rm && !rm.disabled) { const id = rm.dataset.premove; draft.players = draft.players.filter(p => p.id !== id); draft.groups.A = draft.groups.A.filter(x => x !== id); draft.groups.B = draft.groups.B.filter(x => x !== id); renderPlist(); return; }
+    if (t.closest('#add-btn')) { addPlayer(); return; }
+    if (t.closest('[data-draw]')) { drawGroups(); return; }
+    if (t.closest('[data-confirm]')) {
+      draft.players.forEach(p => p.name = p.name.trim());
+      state.players = draft.players; state.groups = draft.groups; state.drawn = true;
+      Object.values(state.matches).forEach(m => { if (Array.isArray(m.surv) && m.surv.some(x => !groupOf(x))) m.surv = null; });
+      markDirty(); render(); closeSheet(); buzz(); return;
+    }
+    return;
+  }
+  if (sheetKind !== 'match') return;
+  const before = String(score(getMatch(sheetId), sheetId).winner);
+  const btn = t.closest('.st-btn');
+  if (btn && !btn.disabled) {
+    const [k, gi, pi] = btn.closest('.stepper').dataset.st.split('.'), g = +gi, p = +pi;
+    const m = ensure(sheetId), cur = m[k][g][p], d = +btn.dataset.delta;
+    m[k][g][p] = cur == null ? (d > 0 ? 1 : 0) : Math.max(0, Math.min(MAXV[k], cur + d));
+    if (k === 'hooks' && !(both(m.hooks[g]) && m.hooks[g][0] === m.hooks[g][1])) { m.kills[g] = [null, null]; m.gens[g] = [null, null]; }
+    if (k === 'kills' && !(both(m.kills[g]) && m.kills[g][0] === m.kills[g][1])) m.gens[g] = [null, null];
+    afterMatchEdit(before); return;
+  }
+  const sv = t.closest('[data-surv]');
+  if (sv) {
+    const m = ensure(sheetId), mt = model.byId[sheetId], cur = (m.surv && m.surv.length ? m.surv : mt.surv).slice(), x = sv.dataset.surv;
+    const hint = $('#surv-hint');
+    if (cur.includes(x)) { m.surv = cur.filter(y => y !== x); hint.hidden = false; hint.textContent = 'Escolha mais um para completar 4.'; }
+    else if (cur.length >= 4) { hint.hidden = false; hint.textContent = 'Já tem 4. Tire alguém antes de colocar outro.'; return; }
+    else { m.surv = [...cur, x]; hint.hidden = m.surv.length === 4; }
+    if (m.surv.length === 4) { hint.hidden = true; markDirty(); render(); }
+    else { $$('#surv-chips .chipbtn').forEach(c => { const on = m.surv.includes(c.dataset.surv); c.classList.toggle('on', on); c.setAttribute('aria-pressed', on); }); }
+    return;
+  }
+  const flip = t.closest('[data-flip]');
+  if (flip && !flip.disabled) { ensure(sheetId).decOpener = Math.random() < 0.5 ? 0 : 1; afterMatchEdit(null); buzz(); return; }
+  const rmap = t.closest('[data-randmap]');
+  if (rmap) {
+    e.preventDefault();
+    const m = ensure(sheetId), used = m.maps.map(x => x.trim()).filter(Boolean), pool = MAPS.filter(x => !used.includes(x));
+    m.maps[+rmap.dataset.randmap] = pool[Math.floor(Math.random() * pool.length)];
+    afterMatchEdit(null); return;
+  }
+  const clr = t.closest('[data-clear]');
+  if (clr) { const m = ensure(sheetId), g = +clr.dataset.clear; m.hooks[g] = [null, null]; m.kills[g] = [null, null]; m.gens[g] = [null, null]; afterMatchEdit(null); }
+});
+sheet.addEventListener('input', e => {
+  if (!canEdit) return;
+  const t = e.target;
+  if (t.dataset.path && sheetKind === 'match') { const [k, i] = t.dataset.path.split('.'); ensure(sheetId)[k][+i] = t.value; afterMatchEdit(null); }
+  else if (t.dataset.pname && draft) { const p = draft.players.find(x => x.id === t.dataset.pname); if (p) { p.name = t.value.slice(0, 24); validateDraft(); } }
+});
+sheet.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'add-name') { e.preventDefault(); addPlayer(); }
+  if (e.key === 'Enter' && sheetKind === 'login' && e.target.matches('input')) { e.preventDefault(); const b = $('[data-lg-primary]', sheet); if (b && !b.disabled) loginClick(b); }
+});
+
+// Opening things from the page
+document.addEventListener('click', e => {
+  if (sheetKind) return;
+  const t = e.target;
+  if (t.closest('[data-open-players]')) { if (canEdit) openSheet('players', null, t.closest('button')); return; }
+  if (t.closest('[data-dismiss]')) { sysMsg = ''; render(); return; }
+  const pend = t.closest('[data-pending]');
+  if (pend) {
+    if (pend.dataset.pending === 'apply' && conflict) { state = normState(conflict); conflict = null; dirty = true; ls.set('cg-pending', state); render(); save(); }
+    else { conflict = null; ls.del('cg-pending'); render(); }
+    return;
+  }
+  const o = t.closest('[data-open]'); if (o && model.byId[o.dataset.open]) openSheet('match', o.dataset.open, o);
+});
+document.addEventListener('keydown', e => {
+  const c = e.target.closest && e.target.closest('.card[data-open]');
+  if (c && !sheetKind && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openSheet('match', c.dataset.open, c); }
+});
+$('#edit-players').addEventListener('click', e => { if (canEdit && !sheetKind) openSheet('players', null, e.currentTarget); });
+$('#save-btn').addEventListener('click', () => { if (canEdit) { dirty = true; save(); } });
+$('#login-btn').addEventListener('click', async e => { if (sheetKind) return; const b = e.currentTarget; if (authInfo === undefined) { b.disabled = true; await loadAuth(); b.disabled = false; } openSheet('login', null, b); });
+
+// Start
+idx = { '#final': 1, '#regras': 2 }[location.hash] ?? 0;
+render(); pagerSpring.jump(-idx * W); go(idx, 0, false);
+applyAccess(); setStatus('loading');
+(async () => {
+  await refresh();
+  const pend = ls.get('cg-pending');
+  if (canEdit && pend && JSON.stringify(normState(pend)) !== JSON.stringify(state)) { conflict = normState(pend); render(); }
+  else ls.del('cg-pending');
+  poll();
+})();
+})();
+</script>
+</body>
+</html>
