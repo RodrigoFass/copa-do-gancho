@@ -39,5 +39,76 @@
   ]
  },
  "drawn": true,
- "matches": {}
+ "matches": {
+  "A.p6.p3": {
+   "bans": [
+    "Nurse",
+    "Blight"
+   ],
+   "picks": [
+    "Springtrap",
+    "Trapper",
+    ""
+   ],
+   "maps": [
+    "Grim Pantry",
+    "",
+    ""
+   ],
+   "builds": [
+    "",
+    "",
+    ""
+   ],
+   "hooks": [
+    [
+     null,
+     null
+    ],
+    [
+     null,
+     null
+    ],
+    [
+     null,
+     null
+    ]
+   ],
+   "kills": [
+    [
+     null,
+     null
+    ],
+    [
+     null,
+     null
+    ],
+    [
+     null,
+     null
+    ]
+   ],
+   "gens": [
+    [
+     null,
+     null
+    ],
+    [
+     null,
+     null
+    ],
+    [
+     null,
+     null
+    ]
+   ],
+   "decOpener": null,
+   "surv": [
+    "p1",
+    "p2",
+    "p4",
+    "p5"
+   ]
+  }
+ }
 }
